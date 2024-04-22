@@ -2,9 +2,9 @@ module Hefty.Class.AlgFunctor where
 
 import Prelude
 
-import Hefty.Data.HFunctor.Variant (VariantH, case_, mapInductive)
 import Data.Symbol (class IsSymbol)
 import Hefty.Data.HFunctor (class HFunctor)
+import Hefty.Data.HFunctor.Variant (VariantH, case_, mapInductive)
 import Prim.Row (class Cons)
 import Prim.RowList (class RowToList, RowList)
 import Prim.RowList as RL
@@ -25,3 +25,9 @@ instance AlgebraicVariantH RL.Nil () where
 
 instance (AlgebraicVariantH rowlist row, AlgFunctor h, Cons sym h row row2, IsSymbol sym) => AlgebraicVariantH (RL.Cons sym h rowlist) row2 where
   algebraicCoerceVariantH = mapInductive @sym algebraicCoerce (algebraicCoerceVariantH @rowlist)
+
+class (AlgFunctor (VariantH row)) <= AlgFunctorV row where
+  algebraicCoerceV :: forall f g. VariantH row f ~> VariantH row g
+
+instance (AlgFunctor (VariantH row)) => AlgFunctorV row where
+  algebraicCoerceV = algebraicCoerce

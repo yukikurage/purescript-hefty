@@ -5,7 +5,7 @@ import Prelude
 import Data.Newtype (class Newtype, unwrap)
 import Hefty.Class.AlgFunctor (class AlgFunctor)
 import Hefty.Data.HFunctor (class HFunctor)
-import Hefty.Data.Handler (HandlerM, handlerM)
+import Hefty.Data.Handler (Handler, HandlerM, mkHandler, mkHandler', mkHandlerM)
 import Hefty.Data.Hefty (Hefty)
 import Prim.Row (class Cons)
 
@@ -20,5 +20,11 @@ instance HFunctor (Algebraic f) where
 instance AlgFunctor (Algebraic f) where
   algebraicCoerce (Algebraic fa) = Algebraic fa
 
-handlerAlgM :: forall @sym f r1 r2 m. Cons sym (Algebraic f) () r1 => (forall b a. f b -> (b -> Hefty r2 (m a)) -> Hefty r2 (m a)) -> HandlerM r1 r2 m
-handlerAlgM f = handlerM @sym \_ hHmB bToHefma -> f (unwrap hHmB) bToHefma
+mkHandlerAlgM :: forall @sym f r1 r2 m. Cons sym (Algebraic f) () r1 => (forall b a. f b -> (b -> Hefty r2 (m a)) -> Hefty r2 (m a)) -> HandlerM r1 r2 m
+mkHandlerAlgM f = mkHandlerM @sym \hHefB bToHefMa -> f (unwrap hHefB) bToHefMa
+
+mkHandlerAlg :: forall @sym f r1 r2. Cons sym (Algebraic f) () r1 => (forall b a. f b -> (b -> Hefty r2 a) -> Hefty r2 a) -> Handler r1 r2
+mkHandlerAlg f = mkHandler @sym \hHefB bToHefMa -> f (unwrap hHefB) bToHefMa
+
+mkHandlerAlg' :: forall @sym f r1 r2. Cons sym (Algebraic f) () r1 => (f ~> Hefty r2) -> Handler r1 r2
+mkHandlerAlg' f = mkHandler' @sym \hHefB -> f (unwrap hHefB)

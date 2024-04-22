@@ -1,4 +1,4 @@
-module Hefty.Data.HFunctor.Variant (VariantH, class HFunctorVariantH, hmapVariantH, inj, splitOne, split, expandOne, expandLeft, expandRight, expand, prj, fromSingleton, on, case_, overOne, mapInductive) where
+module Hefty.Data.HFunctor.Variant (VariantH, class HFunctorVariantH, class HFunctorV, hmapV, hmapVariantH, inj, splitOne, split, expandOne, expandLeft, expandRight, expand, prj, fromSingleton, on, case_, overOne, mapInductive) where
 
 -- Same API as https://pursuit.purescript.org/packages/purescript-variant
 
@@ -26,6 +26,12 @@ newtype VariantH row f a = VariantH
   , index :: Int -- Order of the type in the row
   , value :: ValueH f a
   }
+
+class HFunctor (VariantH row) <= HFunctorV row where
+  hmapV :: forall f g. (f ~> g) -> VariantH row f ~> VariantH row g
+
+instance HFunctor (VariantH row) => HFunctorV row where
+  hmapV = hmap
 
 instance (RowToList row rowlist, HFunctorVariantH rowlist row) => HFunctor (VariantH row) where
   hmap f = hmapVariantH @rowlist @row f

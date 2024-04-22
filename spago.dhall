@@ -12,10 +12,12 @@ to generate this file without the comments in this block.
 -}
 { name = "my-project"
 , dependencies =
-  [ "console"
+  [ "aff"
+  , "console"
   , "control"
   , "effect"
   , "either"
+  , "exceptions"
   , "foldable-traversable"
   , "free"
   , "functors"
@@ -26,6 +28,7 @@ to generate this file without the comments in this block.
   , "partial"
   , "prelude"
   , "tailrec"
+  , "transformers"
   , "tuples"
   , "typelevel-prelude"
   , "unsafe-coerce"

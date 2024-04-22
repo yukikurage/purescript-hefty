@@ -1,11 +1,14 @@
-module Hefty.Data.Effect.State where
+module Hefty.Data.Effect.Throw where
 
 import Prelude
 
+import Control.Monad.Error.Class (throwError)
 import Data.Either (Either(..))
-import Hefty.Data.Algebraic (Algebraic(..), handlerAlgM)
+import Effect.Exception (error)
+import Hefty.Data.Algebraic (Algebraic(..), mkHandlerAlgM)
+import Hefty.Data.Effect.Aff (AFF, liftAff)
 import Hefty.Data.Handler (HandlerM)
-import Hefty.Data.Hefty (Hefty, lift)
+import Hefty.Data.Hefty (Hefty, liftOne)
 import Type.Row (type (+))
 
 data Throw :: forall k. Type -> k -> Type
@@ -18,7 +21,10 @@ type THROW :: forall k1 k2. Type -> Row (k1 -> k2 -> Type) -> Row (k1 -> k2 -> T
 type THROW e r = (throw :: Algebraic (Throw e) | r)
 
 throw :: forall e r a. e -> Hefty (THROW e + r) a
-throw e = lift @Throw_ $ Algebraic $ Throw e
+throw e = liftOne @Throw_ $ Algebraic $ Throw e
 
-throwHandler :: forall e r. HandlerM (THROW e + ()) r (Either e)
-throwHandler = handlerAlgM @Throw_ \op _ -> case op of Throw e -> pure $ Left e
+throwHandlerToEither :: forall @r e. HandlerM (THROW e + ()) r (Either e)
+throwHandlerToEither = mkHandlerAlgM @Throw_ \(Throw e) _ -> pure $ Left e
+
+throwHandlerToAff :: forall @r e m. (e -> String) -> HandlerM (THROW e + ()) (AFF + r) m
+throwHandlerToAff f = mkHandlerAlgM @Throw_ \(Throw e) _ -> liftAff $ throwError $ error $ f e
