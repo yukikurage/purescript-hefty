@@ -1,4 +1,4 @@
-module Data.HFunctor.Variant (VariantH, class HFunctorVariantH, hmapVariantH, inj, takeOne, expandOne, prj, on, case_, overOne, mapInductive) where
+module Hefty.Data.HFunctor.Variant (VariantH, class HFunctorVariantH, hmapVariantH, inj, splitOne, split, expandOne, expandLeft, expandRight, expand, prj, fromSingleton, on, case_, overOne, mapInductive) where
 
 -- Same API as https://pursuit.purescript.org/packages/purescript-variant
 
@@ -6,10 +6,13 @@ import Prelude
 
 import Control.Alternative (class Alternative, empty)
 import Data.Either (Either(..))
+import Data.Foldable (elem)
+import Data.List as L
 import Data.Symbol (class IsSymbol, reflectSymbol)
-import FixFunctor (class HFunctor, hmap)
+import Hefty.Data.HFunctor (class HFunctor, hmap)
+import Hefty.Data.Row.Meta (class RowMeta, rowMeta)
 import Partial.Unsafe (unsafeCrashWith)
-import Prim.Row (class Cons)
+import Prim.Row (class Cons, class Union)
 import Prim.RowList (class RowToList, RowList)
 import Prim.RowList as RL
 import Type.Proxy (Proxy(..))
@@ -46,12 +49,20 @@ unsafeFromValueH = unsafeCoerce
 inj :: forall @sym f h a r1 r2. Cons sym h r1 r2 => IsSymbol sym => h f a -> VariantH r2 f a
 inj hfa = VariantH { symbol: reflectSymbol @sym Proxy, index: 0, value: toValueH hfa }
 
-takeOne :: forall @sym f h a r1 r2. Cons sym h r1 r2 => IsSymbol sym => VariantH r2 f a -> Either (VariantH r1 f a) (h f a)
-takeOne (VariantH { symbol, index, value }) =
+splitOne :: forall @sym f h a r1 r2. Cons sym h r1 r2 => IsSymbol sym => VariantH r2 f a -> Either (VariantH r1 f a) (h f a)
+splitOne (VariantH { symbol, index, value }) =
   let
     isSymbolEq = symbol == reflectSymbol @sym Proxy
   in
     if isSymbolEq && index == 0 then Right $ unsafeFromValueH value else Left $ VariantH { symbol, index: if isSymbolEq then index - 1 else 0, value }
+
+split :: forall @r1 @r2 r3 f a. Union r1 r2 r3 => RowMeta r1 => VariantH r3 f a -> Either (VariantH r1 f a) (VariantH r2 f a)
+split (VariantH { symbol, index, value }) =
+  (if isOnLeft then Left $ VariantH { symbol, index, value } else Right $ VariantH { symbol, index: index - sameLeftSymbolNum, value })
+  where
+  meta1 = rowMeta @r1
+  isOnLeft = elem { symbol: symbol, index: index } meta1.symbols
+  sameLeftSymbolNum = L.length $ L.filter (\s -> s.symbol == symbol) meta1.symbols
 
 expandOne :: forall @sym f h a r1 r2. Cons sym h r1 r2 => IsSymbol sym => VariantH r1 f a -> VariantH r2 f a
 expandOne (VariantH { symbol, index, value }) =
@@ -60,13 +71,28 @@ expandOne (VariantH { symbol, index, value }) =
   in
     VariantH { symbol, index: if isSymbolEq then index + 1 else 0, value }
 
+expandRight :: forall @r1 @r2 @r3 f a. Union r1 r2 r3 => VariantH r1 f a -> VariantH r3 f a
+expandRight = unsafeCoerce
+
+expandLeft :: forall @r1 @r2 @r3 f a. Union r1 r2 r3 => RowMeta r1 => RowMeta r1 => VariantH r2 f a -> VariantH r3 f a
+expandLeft (VariantH { symbol, index, value }) = VariantH { symbol, index: index + sameLeftSymbolNum, value }
+  where
+  meta1 = rowMeta @r1
+  sameLeftSymbolNum = L.length $ L.filter (\s -> s.symbol == symbol) meta1.symbols
+
+expand :: forall @r1 @r2 @r3 r4 r5 f a. Union r2 r3 r5 => Union r1 r5 r4 => RowMeta r1 => VariantH r2 f a -> VariantH r4 f a
+expand = expandRight @r2 @r3 @r5 >>> expandLeft @r1 @r5 @r4
+
 prj :: forall @sym f h a r1 r2 g. Cons sym h r1 r2 => Alternative g => IsSymbol sym => VariantH r2 f a -> g (h f a)
-prj v = case takeOne @sym v of
+prj v = case splitOne @sym v of
   Left _ -> empty
   Right hfa -> pure hfa
 
+fromSingleton :: forall @sym h r f a. Cons sym h () r => VariantH r f a -> h f a
+fromSingleton (VariantH { value }) = unsafeFromValueH value
+
 on :: forall @sym h f a b r1 r2. Cons sym h r1 r2 => IsSymbol sym => (h f a -> b) -> (VariantH r1 f a -> b) -> VariantH r2 f a -> b
-on f g v = case takeOne @sym v of
+on f g v = case splitOne @sym v of
   Left v1 -> g v1
   Right hfa -> f hfa
 
