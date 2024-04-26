@@ -8,14 +8,17 @@ import Data.Newtype (class Newtype, unwrap)
 import Effect (Effect)
 import Effect.Aff (Aff, launchAff_)
 import Effect.Class.Console (log, logShow)
-import Hefty.Data.Effect.Aff (liftAff, runBaseAff)
-import Hefty.Data.Effect.Catch (catch, catchHandlerIgnore, catchHandlerToThrow)
+import Hefty.Class.AlgFunctor (class AlgFunctorV)
+import Hefty.Data.Effect.Aff (AFF, liftAff, runBaseAff)
+import Hefty.Data.Effect.Catch (CATCH, catch, catchHandlerIgnore, catchHandlerToThrow)
 import Hefty.Data.Effect.Local (local, localHandlerPassThrough, localHandlerReplaceReader)
-import Hefty.Data.Effect.Reader (ask, readerHandler)
-import Hefty.Data.Effect.Throw (throw, throwHandlerToEither)
-import Hefty.Data.HFunctor.Variant (VariantH, expand, expandOne, expandRight, inj, prj, split, splitOne)
+import Hefty.Data.Effect.Reader (READER, ask, readerHandler)
+import Hefty.Data.Effect.Throw (THROW, throw, throwHandlerToEither)
+import Hefty.Data.HFunctor (class HFunctor)
+import Hefty.Data.HFunctor.Variant (class HFunctorV, VariantH, expand, expandOne, expandRight, inj, prj, split, splitOne)
 import Hefty.Data.Handler (handle, handleM, (&:))
-import Hefty.Data.Hefty (Hefty)
+import Hefty.Data.Hefty (Hefty(..))
+import Type.Row (type (+))
 
 main :: Effect Unit
 main = launchAff_ do
@@ -47,6 +50,42 @@ variantH = do
   logShow $ hush splited >>= prj @"x" >>= unwrap -- Should print Just 1
 
   pure unit
+
+program
+  :: forall r
+   . HFunctorV (AFF + r)
+  => AlgFunctorV (AFF + r)
+  => HFunctorV (AFF + READER String + r)
+  => AlgFunctorV (AFF + THROW String + r)
+  => HFunctorV (AFF + THROW String + r)
+  => AlgFunctorV r
+  => Hefty (AFF + r) Unit
+program = do
+  handle (readerHandler "Global Env") do
+    let
+      localProgram = local "Local Env" do
+        asked <- ask
+        pure asked
+    maybeGlobal <- handle localHandlerPassThrough localProgram
+    maybeLocal <- handle localHandlerReplaceReader localProgram
+
+    liftAff $ logShow maybeGlobal -- "Global Env"
+    liftAff $ logShow maybeLocal -- "Local Env"
+
+  let
+    catchProgram :: Hefty (CATCH String + THROW String + AFF + r) String
+    catchProgram = do
+      catch
+        do throw "Error"
+        do \_ -> pure "Caught error"
+    maybeThrow = handle catchHandlerIgnore catchProgram
+    maybeSuccess = handle catchHandlerToThrow catchProgram
+
+  maybeLeft <- handleM throwHandlerToEither maybeThrow
+  maybeRight <- handleM throwHandlerToEither maybeSuccess
+
+  liftAff $ logShow maybeLeft -- (Left "Error")
+  liftAff $ logShow maybeRight -- (Right "Caught error")
 
 hefty :: Aff Unit
 hefty = do
