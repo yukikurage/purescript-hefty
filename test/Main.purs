@@ -2,22 +2,21 @@ module Test.Main where
 
 import Prelude
 
-import Data.Either (Either, blush, hush, note)
+import Data.Either (Either, blush, hush)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype, unwrap)
 import Effect (Effect)
 import Effect.Aff (Aff, launchAff_)
-import Effect.Class.Console (log, logShow)
+import Effect.Class.Console (logShow)
 import Hefty.Class.AlgFunctor (class AlgFunctorV)
 import Hefty.Data.Effect.Aff (AFF, liftAff, runBaseAff)
 import Hefty.Data.Effect.Catch (CATCH, catch, catchHandlerIgnore, catchHandlerToThrow)
 import Hefty.Data.Effect.Local (local, localHandlerPassThrough, localHandlerReplaceReader)
 import Hefty.Data.Effect.Reader (READER, ask, readerHandler)
 import Hefty.Data.Effect.Throw (THROW, throw, throwHandlerToEither)
-import Hefty.Data.HFunctor (class HFunctor)
-import Hefty.Data.HFunctor.Variant (class HFunctorV, VariantH, expand, expandOne, expandRight, inj, prj, split, splitOne)
-import Hefty.Data.Handler (handle, handleM, (&:))
-import Hefty.Data.Hefty (Hefty(..))
+import Hefty.Data.HFunctor.Variant (class HFunctorV, VariantH, expand, expandOne, inj, prj, split, splitOne)
+import Hefty.Data.Handler (handle, handleM)
+import Hefty.Data.Hefty (Hefty)
 import Type.Row (type (+))
 
 main :: Effect Unit
@@ -25,6 +24,7 @@ main = launchAff_ do
   variantH
   hefty
 
+newtype TestH :: forall k. (k -> Type) -> k -> Type
 newtype TestH f a = TestH (f a)
 
 derive instance Newtype (TestH f a) _
